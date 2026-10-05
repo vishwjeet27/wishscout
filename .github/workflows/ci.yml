@@ -1,0 +1,74 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - 'release/**'
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-codebase:
+    name: Verify Code Integrity & Syntax
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        node-version: [22.x, 24.x]
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Execute Static Analysis & IPC Integrity Verification
+        run: npm run check
+
+  hygiene-check:
+    name: Repository Hygiene & License Guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Scan for Prohibited File Types
+        run: |
+          PROHIBITED_FILES=$(find . -type f \( -name "*.db" -o -name "*.sqlite" -o -name "*.sqlite3" -o -name "*.env" -o -name "*.log" \) -not -path "*/node_modules/*")
+          if [ -n "$PROHIBITED_FILES" ]; then
+            echo "ERROR: Prohibited binary or environment files found in repository:"
+            echo "$PROHIBITED_FILES"
+            exit 1
+          fi
+          echo "Repository hygiene check passed: No database, secret or log files tracked."
+
+      - name: Validate License Attribution & Required Files
+        run: |
+          for file in LICENSE NOTICE DISCLAIMER.md README.md; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: Required legal/documentation file missing: $file"
+              exit 1
+            fi
+          done
+          echo "Legal documentation files verified."

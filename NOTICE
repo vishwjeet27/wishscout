@@ -1,0 +1,15 @@
+WishScout
+Copyright (C) 2026 Vishwjeet Singh Vilkhu
+
+Original Creator & Architect: Vishwjeet Singh Vilkhu
+
+This product is licensed under the GNU General Public License v3.0
+(see LICENSE). In accordance with Section 7 of the GPL-3.0, any fork,
+compilation, cloud deployment or derivative work MUST preserve:
+
+  1. Credit to the original creator & architect, Vishwjeet Singh Vilkhu.
+  2. This NOTICE file in the project root.
+  3. An accessible "About WishScout" dialog in the UI and the persistent
+     credit:
+       WishScout · Created & Architected by Vishwjeet Singh Vilkhu · GPL-3.0
+  4. The copyright and authorship header present in every source file.

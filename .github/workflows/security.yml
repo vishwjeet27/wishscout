@@ -1,0 +1,25 @@
+name: Security & Vulnerability Audit
+
+on:
+  schedule:
+    # Run weekly on Monday at 04:00 UTC
+    - cron: '0 4 * * 1'
+  workflow_dispatch:
+
+jobs:
+  audit-dependencies:
+    name: Dependency Vulnerability Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Audit Production Dependencies
+        run: |
+          npm audit --omit=dev --audit-level=high || true

@@ -1,0 +1,45 @@
+/**
+ * WishScout — Local Business Discovery & Intelligence
+ * Copyright (C) 2026 Vishwjeet Singh Vilkhu (Original Creator & Architect)
+ * Licensed under the GNU GPL-3.0. See LICENSE and NOTICE; attribution must be preserved (GPL-3.0 §7).
+ */
+:root {
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, "SF Mono", monospace;
+  --radius: 8px; --radius-lg: 12px;
+}
+[data-theme="dark"] {
+  --bg-canvas: #09090b; --bg-surface: #121215; --bg-surface-hover: #18181b; --bg-subtle: #27272a;
+  --bg-sidebar: #121215;
+  --border-subtle: #27272a; --border-strong: #3f3f46;
+  --text-primary: #fafafa; --text-secondary: #a1a1aa; --text-muted: #71717a;
+  --accent-contrast: #ffffff; --accent-contrast-text: #09090b;
+  --input-bg: #09090b;
+  --console-bg: #09090b;
+  --console-text: #fafafa;
+  --card-shadow: none;
+  --status-new: #52525b; --status-contacted: #71717a; --status-followup: #a1a1aa; --status-interested: #e4e4e7; --status-converted: #ffffff; --status-disqualified: #3f3f46;
+  --backdrop: rgba(0, 0, 0, .62);
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  --bg-canvas: #f0f2f5; /* Calming, anti-glare, eye-friendly soft canvas */
+  --bg-surface: #ffffff; /* Elevated card surface */
+  --bg-surface-hover: #f8fafc;
+  --bg-subtle: #edf2f7;
+  --bg-sidebar: #ffffff; /* Distinct crisp sidebar */
+  --border-subtle: #e2e8f0; /* Soft, delicate divider borders */
+  --border-strong: #cbd5e1; /* Clear readable boundary for controls */
+  --text-primary: #1e293b; /* Deep charcoal slate: eliminates harsh black glare */
+  --text-secondary: #475569; /* Balanced slate for secondary labels */
+  --text-muted: #64748b; /* Soft neutral gray */
+  --accent-contrast: #2563eb; /* Soothing royal blue for primary actions */
+  --accent-contrast-text: #ffffff;
+  --input-bg: #ffffff;
+  --console-bg: #18181b; /* Sleek dark terminal console */
+  --console-text: #f4f4f5;
+  --card-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --status-new: #64748b; --status-contacted: #0284c7; --status-followup: #d97706; --status-interested: #16a34a; --status-converted: #059669; --status-disqualified: #94a3b8;
+  --backdrop: rgba(15, 23, 42, .38);
+  color-scheme: light;
+}

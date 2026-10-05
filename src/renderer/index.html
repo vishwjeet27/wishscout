@@ -1,0 +1,41 @@
+<!doctype html>
+<!--
+  WishScout — Copyright (C) 2026 Vishwjeet Singh Vilkhu (Original Creator & Architect)
+  Licensed under the GNU GPL-3.0. See LICENSE and NOTICE.
+-->
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WishScout</title>
+  <link rel="icon" type="image/png" href="../../assets/favicon.png">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand"><img class="logo-img" src="../../assets/logo-mark.png" alt="WishScout logo"><b>WishScout</b></div>
+      <nav id="nav" aria-label="Main"></nav>
+      <div class="spacer"></div>
+      <button class="nav-btn" id="theme-toggle" type="button">Switch to light mode</button>
+      <div class="sidebar-footer">
+        <button type="button" class="sidebar-credit-card" id="footer-about" title="View WishScout details & license">
+          <div class="credit-row-top">
+            <span class="credit-brand-title">WishScout</span>
+            <span class="credit-license-pill">GPL-3.0</span>
+          </div>
+          <div class="credit-architect-line">
+            <span class="credit-role-label">Created &amp; Architected by</span>
+            <span class="credit-author-name">Vishwjeet Singh Vilkhu</span>
+          </div>
+        </button>
+      </div>
+    </aside>
+    <main class="main" id="view"></main>
+  </div>
+  <div id="modal-root"></div>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
