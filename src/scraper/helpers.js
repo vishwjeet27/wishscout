@@ -67,18 +67,20 @@ export function haversineKm(a, b) {
 
 /** Best-effort split of a Google Maps style address into city/state/postal/country. */
 export function parseAddress(address = '', location = '') {
-  const parts = address.split(',').map(s => s.trim()).filter(Boolean);
-  const loc = location.split(',').map(s => s.trim()).filter(Boolean);
+  // Support both comma-separated and dash-separated addresses (common in UAE, India, UK, etc.)
+  const delimiter = /,\s*|\s+[-–—]\s+/;
+  const parts = address.split(delimiter).map(s => s.trim()).filter(Boolean);
+  const loc = location.replace(/^Gosom:\s*/i, '').replace(/^.*?\bin\s+/i, '').replace(/^.*?\bnear\s+/i, '').split(delimiter).map(s => s.trim()).filter(Boolean);
   let country = '', state = '', postal = '', city = '';
-  if (parts.length >= 3 && !/\d/.test(parts.at(-1)) && parts.at(-1).length > 3) country = parts.pop();
+  if (parts.length >= 3 && !/\d/.test(parts.at(-1)) && parts.at(-1).length > 2) country = parts.pop();
   const m = (parts.at(-1) || '').match(/^(.*?)\s*(\b\d{4,6}(?:-\d{4})?\b|[A-Z]\d[A-Z] ?\d[A-Z]\d|[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2})$/);
   if (m) { state = m[1].trim(); postal = m[2]; parts.pop(); }
   else if (parts.length >= 3 && /^[A-Za-z .]{2,}$/.test(parts.at(-1))) state = parts.pop();
   city = parts.length > 1 ? parts.at(-1) : '';
-  if (!city || /\d/.test(city)) city = loc[0] || '';
+  if (!city || /\d/.test(city) || city.length < 2) city = loc[0] || '';
   if (!state && loc[1]) state = loc[1];
   if (!country && loc.length > 1) country = loc.at(-1);
-  return { city, state, postal, country };
+  return { city: city.replace(/^[-–—\s]+|[-–—\s]+$/g, ''), state, postal, country };
 }
 
 /** Generates concentric radial coordinates around center location to bypass single-viewport discovery caps. */

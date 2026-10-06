@@ -9,9 +9,16 @@ import { initDiscovery, mountDiscovery } from './discovery.js';
 import { mountPipeline } from './pipeline.js';
 import { mountAnalytics } from './analytics.js';
 import { mountSettings, showAbout, showTerms } from './settings.js';
+import { mountGosom } from './gosom.js';
 
-const VIEWS = [['discovery', 'Discovery', mountDiscovery], ['pipeline', 'Pipeline', mountPipeline], ['analytics', 'Analytics', mountAnalytics], ['settings', 'Settings', mountSettings]];
-const VIEW_ICONS = { discovery: 'search', pipeline: 'layers', analytics: 'chart', settings: 'settings' };
+const VIEWS = [
+  ['discovery', 'Discovery', mountDiscovery],
+  ['gosom', 'Gosom Engine', mountGosom],
+  ['pipeline', 'Pipeline', mountPipeline],
+  ['analytics', 'Analytics', mountAnalytics],
+  ['settings', 'Settings', mountSettings]
+];
+const VIEW_ICONS = { discovery: 'search', gosom: 'cpu', pipeline: 'layers', analytics: 'chart', settings: 'settings' };
 let cleanup = null;
 
 function applyTheme(t) {

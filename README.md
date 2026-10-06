@@ -1,132 +1,166 @@
 # WishScout
 
-**Offline-First Local B2B Discovery, Contact Enrichment & Outreach Pipeline**
+**Enterprise-Grade Offline B2B Discovery, Contact Enrichment & Outreach Intelligence Platform**
 
-WishScout is an offline-first desktop application designed for sales intelligence, agency client acquisition, and local market discovery. Built with Electron, Vanilla JavaScript, embedded SQLite (`better-sqlite3`), and Playwright, WishScout runs entirely on your local workstation. All discovered businesses, enriched contact data, interaction logs, and pipeline states remain strictly local—never transmitted to third-party cloud servers or external databases.
-
----
-
-## Architectural Highlights
-
-- **Offline-First & Local Sovereign:** Zero telemetry, no cloud subscriptions, and no external tracking. Your prospecting database resides in a high-performance local SQLite database operated in Write-Ahead Logging (WAL) mode.
-- **Multi-Process Sandboxing:** Complete separation of concerns between the Electron main coordinator, an isolated utility background process for headless automation, and a sandboxed UI renderer.
-- **Zero C++ Build Toolchains Required:** Uses prebuilt binaries via `better-sqlite3`, ensuring seamless cross-platform installation on Windows workstations without requiring Python or Visual Studio C++ build dependencies.
-- **Enterprise-Grade IPC Security:** The renderer operates with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`. Communication occurs solely through a strictly allow-listed, frozen IPC bridge.
-- **Spreadsheet Formula Injection Defense:** All CSV export operations automatically sanitize dangerous formula characters (`=`, `@`, `+`, `-`), preventing CSV injection attacks in Excel or LibreOffice.
+WishScout is an offline-first desktop application engineered for sales intelligence, B2B lead generation, agency client acquisition, and local market intelligence. Built with Electron, Vanilla JavaScript, embedded SQLite (`better-sqlite3`), and Playwright, WishScout operates strictly on the operator's local workstation. All discovered businesses, enriched contact vectors, interaction histories, and CRM pipeline records remain sovereign and local—never transmitted to third-party cloud servers or external aggregators.
 
 ---
 
-## Core Capabilities
+## Architectural Principles
 
-### 1. Multi-Source Discovery Engine
-- **Google Maps:** Full extraction of business identities, categories, star ratings, review counts, geographic coordinates, price levels, opening hours, plus codes, thumbnails, and descriptions.
-- **Multi-Point Radial Grid Search:** Google Maps limits individual map views to approximately 120 listings. WishScout overcomes this by calculating radial micro-coordinate grid points around the target epicenter to discover 500+ unique listings per city.
-- **Alternative Global Sources:** Built-in secondary scraping modules for **Bing Maps** (global coverage), **YellowPages** (US business directories), and **Yelp** (regional commercial profiles).
-- **Live Event-Streamed UI:** Listings stream into the user interface in real time as they are parsed from directory pages.
+- **Offline-First & Data Sovereign:** Zero telemetry, no cloud subscriptions, and no external tracking. The prospect database resides in a high-performance local SQLite database operated in Write-Ahead Logging (WAL) mode with triple-point indexing.
+- **Dual-Engine Architecture:** Combines a native Playwright headless browser extraction engine for precision exploratory scraping with a containerized Go-based engine (Gosom) for high-throughput batch extraction.
+- **Multi-Process Sandboxing:** Complete separation of concerns between the Electron main coordinator, isolated background utility processes for automated crawling, and a sandboxed UI renderer.
+- **Enterprise-Grade IPC Security:** The renderer operates with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`. Inter-process communication occurs strictly through a frozen, allow-listed IPC channel registry.
+- **Spreadsheet Formula Injection Defense:** All CSV export routines automatically neutralize potentially dangerous formula trigger characters (`=`, `@`, `+`, `-`), preventing CSV injection attacks in spreadsheet processors such as Microsoft Excel and LibreOffice Calc.
+- **Zero Build Toolchain Overhead:** Leverages precompiled binaries for `better-sqlite3`, ensuring frictionless cross-platform setup on Windows workstations without requiring Python or Visual C++ compilation toolchains.
 
-### 2. Deep Contact & Social Intelligence Enrichment
-- **Automated Website Crawler:** For every business with an authoritative website URL, an asynchronous background enrichment worker navigates the homepage, `/contact`, `/about`, and `/team` pages.
-- **Data Extracted:** Direct business email addresses (RFC 5322 compliant regex with asset exclusion), direct telephone numbers, and official social media profile links (LinkedIn, Instagram, Facebook, Twitter/X, YouTube).
-- **Domain & Whois Intelligence:** Automated extraction of registered domain names and business ownership cues.
-- **Polite Crawling Compliance:** Adheres to target website `robots.txt` Disallow directives, implements human-like randomized request jitter, and never attempts to bypass login walls or CAPTCHAs.
+---
 
-### 3. Anti-Ban & Rate-Limit Mitigation
-- **Rotating Proxy Pool:** Built-in support for multiple HTTP, HTTPS, and SOCKS5 proxies (`user:pass@host:port` or `host:port`). The engine rotates proxies in round-robin order across concurrent crawl tasks.
-- **Smart User-Agent Rotation:** Distributes requests across modern desktop browser User-Agent strings.
-- **Headless / Headful Diagnostic Toggle:** Run silently in headless mode for maximum speed, or toggle headful browser execution via Settings to monitor crawling behavior or fulfill regional prompts.
+## Core Capabilities & Features
 
-### 4. Smart Multi-Key Deduplication
-- Detects existing businesses before insertion across 4 distinct identity dimensions:
-  1. Google Place ID
-  2. Normalized E.164 / Domestic Phone Number
-  3. Domain Name
-  4. Normalized Business Name + City Match
-- **Pipeline Protection:** Existing leads in active outreach stages (`Contacted`, `Meeting Scheduled`, `Proposal Sent`, `Won`, `Lost`) are protected from accidental overwrites. If new contact channels (e.g., email or socials) are discovered for an existing lead, they are merged non-destructively.
+### 1. Dual Discovery Engines
 
-### 5. Agency Qualification & Discovery Filters
-- **Website Filter:** Filter prospects by **"No Website"** (a prime segment for web design, development, and hosting agencies) or **"Has Website"** (for SEO, CRO, and digital advertising services).
-- **Reputation Tiers:** Target businesses with lower ratings (`< 4.0`) for online reputation management (ORM) and review booster campaigns, or well-rated establishments (`>= 4.5`) for premium B2B partnerships.
-- **Multi-Category Batch Discovery:** Execute multi-niche discovery queries in a single pass (e.g., `dentists, pediatricians, chiropractors`).
-- **Offline City Autocomplete:** Built-in offline database covering major commercial metropolitan centers across the United States, United Kingdom, Canada, Australia, India, and Europe.
+#### Native Headless Discovery Engine
+- **Multi-Directory Coverage:** Deep extraction across **Google Maps**, **Bing Maps** (global), **YellowPages** (United States and Canada), and **Yelp** (commercial regional directories).
+- **Radial Micro-Coordinate Grid Expansion:** Overcomes directory listing view caps (~120 listings) by calculating concentric radial coordinate offsets around the search epicenter, enabling comprehensive regional sweeps.
+- **Live Event Stream:** Extracted records stream into the active workspace view immediately upon extraction.
 
-### 6. Integrated Pipeline CRM & Follow-Up Management
-- **Status Lifecycle Tracking:** Track prospects through standardized stages: `New Lead`, `Contacted`, `Qualified`, `Meeting Scheduled`, `Proposal Sent`, `Won`, `Lost`.
-- **Custom Tagging System:** Quickly tag records with operational labels (`Hot Lead`, `High Budget`, `Call Back`, `Proposal Sent`, `Wrong Number`) or create custom tags.
-- **Follow-up Reminders:** Schedule exact follow-up dates. WishScout displays visual "Due Today" badges and fires native desktop notifications upon application launch.
-- **Comprehensive Activity Logging:** Maintain an audit trail of every call, message, proposal, and status change with structured notes and timestamps.
+#### High-Concurrency Engine Integration (Gosom)
+- **Containerized Extraction:** Integrated with Georgios Somarakis' open-source [gosom/google-maps-scraper](https://github.com/gosom/google-maps-scraper) (MIT License) for high-speed batch discovery (~120 places per minute).
+- **Live Incremental Stream Ingestion:** Ingests output continuously in real time directly from NDJSON streams into the local SQLite CRM database as businesses are crawled, providing live counter updates without post-crawl delays.
+- **Automatic Container Management:** Automated Docker environment verification, container lifecycle supervision, and clean teardown upon crawl completion.
 
-### 7. Direct 1-Click Outreach
-- **WhatsApp Web Integration:** Direct one-click chat initiation with country-code normalization and automatic pre-filled dynamic message text.
-- **Email Pitch Composer:** Integrated composition modal supporting system default mailto clients.
-- **Custom Outreach Template Manager:** Create, update, and manage reusable multi-channel pitch templates directly in the Settings tab.
-- **Dynamic Personalization Variables:**
+---
+
+### 2. Query Automation & Productivity Tools
+
+- **Matrix Query Multiplier:** Combinatorial niche-by-location query generator. Input target business niches and multiple target cities or districts, select a templating pattern (e.g., `{niche} in {location}`, `{niche} near {location}`, `{location} {niche}`), and generate dozens or hundreds of structured search queries instantly.
+- **Curated Industry Preset Packs:** Pre-built, high-converting query packages tailored for agency client acquisition:
+  - *Healthcare & Clinics Pack* (35 targeted queries: hospitals, dental clinics, dermatology, diagnostic labs, etc.)
+  - *Real Estate & Construction Ecosystem* (35 targeted queries: developers, architects, interior designers, contractors, etc.)
+  - *Home Improvement & Local Services* (35 targeted queries: electricians, plumbers, HVAC, pest control, solar contractors, etc.)
+  - *Hospitality, Food & Nightlife* (30 targeted queries: cafes, boutique hotels, resorts, banquet halls, event planners, etc.)
+  - *Professional B2B Services & Education* (30 targeted queries: accounting firms, legal practices, software agencies, IT services, etc.)
+- **Live Progress & Dynamic ETA Engine:** Visual progress bar tracking current query status (`Query X of Y`), dynamic percentage completion, real-time estimated time remaining, and granular execution breakdown pills (Completed, Zero Results, Blocked/Failed).
+- **Single-Click Failed Query Retry:** Automatically captures queries that encountered network timeouts, rate limiting, or zero results, allowing operators to relaunch targeted retries with a single click.
+
+---
+
+### 3. Contact & Social Intelligence Enrichment
+
+- **Autonomous Website Crawler:** For businesses with an identified website, an asynchronous background enrichment worker systematically inspects the homepage, `/contact`, `/about`, and `/team` endpoints.
+- **Extracted Contact Data:** Direct business email addresses (RFC 5322 compliant regex with asset and CDN exclusion), direct phone numbers, and official social media profile URLs (LinkedIn, Instagram, Facebook, Twitter/X, YouTube).
+- **Polite Crawling Compliance:** Adheres to target website `robots.txt` Disallow directives, employs randomized request jitter, and avoids aggressive polling.
+
+---
+
+### 4. Anti-Ban & Network Protection
+
+- **Rotating Proxy Pool:** Built-in support for HTTP, HTTPS, and SOCKS5 proxy pools (`user:pass@host:port` or `host:port`). The engine cycles proxies in round-robin sequence across concurrent workers.
+- **Dynamic User-Agent Rotation:** Distributes requests across a curated list of modern desktop browser User-Agent strings.
+- **Headless / Headful Mode Toggle:** Execute silently in headless mode for maximum extraction velocity, or toggle headful browser execution via Settings to monitor crawling behavior or inspect site layout variations.
+
+---
+
+### 5. Multi-Key Deduplication Engine
+
+- Evaluates duplicate candidates prior to database insertion across four independent identity dimensions:
+  1. Canonical Google Place ID (`place_id`)
+  2. Normalized Domain Name (`domain`)
+  3. Standardized Telephone Number (`normalized_phone`)
+  4. Normalized Business Name combined with Geographic City (`name_city`)
+- **Pipeline Overwrite Protection:** Businesses currently engaged in active pipeline stages (`Contacted`, `Meeting Scheduled`, `Proposal Sent`, `Won`, `Lost`) are protected from automated overwriting. New contact details (such as newly discovered email addresses or social handles) are merged non-destructively.
+- **Interactive Deduplication Assistant:** A visual merge tool that surfaces duplicate candidates, displaying side-by-side Record A (Primary) and Record B (Secondary) comparisons for manual review and non-destructive consolidation.
+
+---
+
+### 6. Integrated Pipeline CRM & Outreach Management
+
+- **Lifecycle Stage Tracking:** Categorize leads across standardized operational stages: `New Lead`, `Contacted`, `Qualified`, `Meeting Scheduled`, `Proposal Sent`, `Won`, and `Lost`.
+- **Deep Search & Filtering:** Comprehensive search bar querying business names, domains, categories, cities, states, countries, complete addresses, telephone numbers, emails, and decision-maker names simultaneously.
+- **VoIP Click-to-Call & Mobile QR Dialing:**
+  - One-click desktop dialing via Windows Phone Link, Skype, or configured softphone clients.
+  - Generated dynamic high-resolution QR codes: operators can scan directly with a smartphone camera to initiate calls instantly without typing phone numbers.
+- **Direct Multi-Channel Outreach:**
+  - **WhatsApp Web Integration:** One-click WhatsApp message initiation with automated international phone normalization and dynamic template population.
+  - **Email Pitch Composer:** Integrated email composition interface with system default mailto client support.
+- **Personalized Template Variables:**
   - `{name}` — Business name
   - `{city}` — Business city
-  - `{category}` — Business category / industry
-  - `{owner_name}` — Identified decision maker / business owner
+  - `{category}` — Business category
+  - `{owner_name}` — Contact person or business owner
   - `{website}` — Website URL
-  - `{phone}` — Contact telephone number
+  - `{phone}` — Telephone number
+- **Follow-up Reminders & Timeline Auditing:** Schedule exact follow-up dates with visual "Due Today" badges, multi-channel interaction checkmarks (WhatsApp Sent, Email Sent, Phone Call Logged, Social DM), and complete activity history logging.
 
-### 8. Enterprise Reporting & Dossier Generation
-- **Excel-Compatible CSV Export:** Clean export of all lead metadata and enrichment records with formula sanitization.
-- **Full JSON Backups:** Export full database dumps or filtered segments including outreach histories and search statistics.
-- **Executive Prospect Dossier (PDF):** Generate professional, high-resolution printable PDF audits containing hero thumbnail imagery, price tiers, operating hours, decision maker details, reputation metrics, and full contact sheets.
+---
+
+### 7. Exporting & Dossier Generation
+
+- **Formula-Sanitized CSV Export:** Export complete lead metadata with automated CSV injection neutralization.
+- **Structured JSON Dumps:** Complete database export including outreach histories, audit logs, and search queries.
+- **Executive Prospect Dossier (PDF):** Generates high-resolution, printable PDF client audits containing business branding, reputation scores, opening hours, verified contacts, and decision-maker dossiers.
 
 ---
 
 ## Technical Architecture
 
-```
+```text
 wishscout/
-├── assets/                  # Application icons and branding assets
+├── assets/                    # Application icons, branding marks, and vector assets
 ├── scripts/
-│   └── check.mjs            # Static syntax and IPC security integrity verification
+│   └── check.mjs              # Automated static syntax and IPC allow-list verification
 ├── src/
 │   ├── main/
-│   │   ├── main.js          # Electron lifecycle, window creation, IPC handlers
-│   │   ├── preload.cjs      # Sandboxed preload exposing frozen IPC channels
-│   │   ├── db.js            # SQLite database schema, migrations, indexing, and queries
-│   │   ├── exporter.js      # CSV formula neutralization, JSON, and PDF dossier generator
-│   │   └── scraperManager.js# Child utility process coordinator and state manager
+│   │   ├── main.js            # Electron application lifecycle and IPC registration
+│   │   ├── preload.cjs        # Context-isolated secure preload bridge
+│   │   ├── db.js              # SQLite database schema, WAL configuration, migrations
+│   │   ├── exporter.js        # CSV sanitization, JSON export, and PDF dossier generation
+│   │   ├── scraperManager.js  # Headless Playwright worker coordinator
+│   │   └── gosomManager.js    # Docker Gosom container coordinator & live stream ingestor
 │   ├── scraper/
 │   │   ├── discoveryWorker.js # UtilityProcess worker executing Playwright discovery
-│   │   ├── enrichmentWorker.js# Asynchronous HTTP crawler extracting emails & socials
-│   │   ├── helpers.js       # Proxy rotator, geocoding, radial math, address parser
+│   │   ├── enrichmentWorker.js# Asynchronous HTTP crawler extracting emails & social links
+│   │   ├── helpers.js         # Proxy rotator, radial coordinate math, address parser
 │   │   └── sources/
-│   │       ├── bing.js      # Bing Maps directory scraper module
+│   │       ├── bing.js        # Bing Maps directory scraper module
 │   │       ├── yellowpages.js # YellowPages business directory module
-│   │       └── yelp.js      # Yelp regional commercial listings module
+│   │       └── yelp.js        # Yelp regional commercial listings module
 │   ├── shared/
-│   │   └── channels.js      # Single source of truth for IPC protocol definitions
+│   │   └── channels.js        # Single source of truth for IPC protocol definitions
 │   └── renderer/
-│       ├── index.html       # Single-page application shell
+│       ├── index.html         # Single-page application shell
 │       ├── css/
-│       │   ├── variables.css# Design system tokens, color palettes, and typography
-│       │   └── components.css# Glassmorphic layout, tables, drawers, and modal styles
+│       │   ├── variables.css  # Design system tokens, color palettes, typography
+│       │   └── components.css # Component styles, tables, cards, drawers, and modal sheets
 │       └── js/
-│           ├── app.js       # UI initialization, navigation controller, and theme toggle
-│           ├── discovery.js # Live streaming discovery view and controls
-│           ├── pipeline.js  # Leads management table, detail drawer, and CRM features
-│           ├── analytics.js # Local database metrics, charts, and activity summaries
-│           ├── settings.js  # Concurrency, proxy pool, template manager, and legal modals
-│           ├── cities.js    # Curated offline metropolitan database
-│           └── util.js      # Safe DOM builder, sanitized external link launcher, toast notifications
-├── DISCLAIMER.md            # Operator legal compliance and safe harbor notice
-├── LICENSE                  # GNU General Public License v3.0 (GPL-3.0)
-├── NOTICE                   # Copyright and author attribution notices
-└── package.json             # Application dependencies and build scripts
+│           ├── app.js         # Navigation router, view manager, and theme controller
+│           ├── discovery.js   # Native multi-source discovery view and live stream
+│           ├── gosom.js       # Gosom high-concurrency engine interface and query matrix
+│           ├── pipeline.js    # Pipeline CRM table, detail drawer, and QR dialing modal
+│           ├── qrcode.min.js  # Client-side vector QR code generator
+│           ├── analytics.js   # Database metrics, coverage rates, and performance charts
+│           ├── settings.js    # Concurrency controls, proxy pool, and outreach templates
+│           ├── cities.js      # Offline global metropolitan database
+│           └── util.js        # Safe DOM builder, external link launcher, and SVG icon library
+├── DISCLAIMER.md              # Operator compliance, acceptable use, and safe harbor policy
+├── LICENSE                    # GNU General Public License v3.0 (GPL-3.0)
+├── NOTICE                     # Copyright and third-party attribution declarations
+└── package.json               # Package configuration and build commands
 ```
 
 ---
 
 ## Installation & Setup
 
-### Prerequisites
+### System Prerequisites
 - **Node.js:** v20.x or higher (tested on Node.js v22 and v24 LTS).
-- **Operating System:** Windows 10 / 11 (x64), Linux, or macOS.
-- **Browser:** Microsoft Edge or Google Chrome installed locally. Playwright binds directly to your existing system browser installation without requiring separate multi-hundred megabyte browser downloads.
+- **Operating System:** Windows 10 / 11 (x64), Linux (x64), or macOS (ARM64 / x64).
+- **Browser:** Google Chrome or Microsoft Edge installed on the host system. Playwright binds to the host browser installation directly, avoiding large standalone browser downloads.
+- **Docker Desktop (Optional):** Required only if utilizing the containerized Gosom High-Concurrency Engine. Standard discovery runs natively without Docker.
 
-### Quick Start
+### Getting Started
 
 1. **Clone the repository:**
    ```bash
@@ -139,12 +173,12 @@ wishscout/
    npm install
    ```
 
-3. **Run code integrity and static security verification:**
+3. **Execute static verification and security validation:**
    ```bash
    npm run check
    ```
 
-4. **Launch WishScout in development mode:**
+4. **Launch WishScout in desktop development mode:**
    ```bash
    npm start
    ```
@@ -153,82 +187,69 @@ wishscout/
 
 ## Production Packaging
 
-WishScout is configured with `electron-builder` to produce standalone, signed, or unsigned desktop distributables.
+WishScout is configured with `electron-builder` to compile standalone desktop installers.
 
-To generate a Windows x64 NSIS standalone installer:
+To build the standalone Windows x64 NSIS installer:
 ```bash
 npm run dist
 ```
-The compiled installer will be placed in the `dist/` directory:
-```
+
+The compiled distributable will be output to:
+```text
 dist/WishScout Setup 1.0.0.exe
 ```
 
 ---
 
-## Proxy Configuration Guide
+## Continuous Integration & Security Audits
 
-To configure rotating proxies for heavy extraction tasks:
-1. Navigate to the **Settings** view in the WishScout sidebar.
-2. Under **Rotating Proxy Pool**, input your proxy endpoints (one per line). Supported protocols include:
-   ```text
-   http://127.0.0.1:8080
-   http://username:password@proxy-host.com:3128
-   socks5://192.168.1.100:1080
-   socks5://authuser:authpass@socks-pool.net:1080
-   ```
-3. WishScout will parse the entries and display a live verification badge (e.g., `4 proxies in pool`).
-4. Click **Save crawler settings**. All background workers will cycle through the pool in round-robin order.
+The project includes GitHub Actions workflows under `.github/workflows/`:
+
+- **Continuous Integration (`ci.yml`):** Validates code integrity, runs `npm run check`, tests syntax across Windows and Ubuntu on Node.js v22 LTS and v24, and ensures strict preload IPC allow-list adherence.
+- **Release Automation (`release.yml`):** Triggers upon version tag pushes (e.g., `v1.0.0`), builds the production NSIS executable, calculates cryptographic SHA-256 checksums (`SHA256SUMS.txt`), and drafts formal GitHub Releases.
+- **Security Audit (`security.yml`):** Runs automated dependency vulnerability assessments on a weekly schedule.
 
 ---
 
-## Continuous Integration & Git Pipelines
+## Compliance & Responsible Use Policy
 
-WishScout includes preconfigured, enterprise-grade GitHub Actions workflows located in `.github/workflows/`:
+WishScout is an automation and discovery utility intended strictly for legitimate B2B business development and market analysis. Operators are solely responsible for ensuring adherence to regional, national, and international data privacy and commercial messaging statutes:
 
-- **Continuous Integration (`ci.yml`):**
-  - Triggers on every push and pull request against `main` and `master`.
-  - Runs cross-platform matrix testing on **Windows** and **Ubuntu** across Node.js versions (v22 LTS and v24 Current).
-  - Executes strict static analysis, preload IPC allow-list verification, and syntax validation (`npm run check`).
-  - Scans for prohibited binary or environment files to preserve repository cleanliness.
-
-- **Automated Release Pipeline (`release.yml`):**
-  - Triggers on version tag pushes (e.g., `v1.0.0`) or manual execution via `workflow_dispatch`.
-  - Compiles the standalone Windows NSIS x64 installer (`npm run dist`).
-  - Automatically computes cryptographic SHA-256 checksums (`SHA256SUMS.txt`).
-  - Publishes a formal GitHub Release attaching the executable installer, update blockmaps, and verification checksums.
-
-- **Security & Dependency Audit (`security.yml`):**
-  - Runs scheduled weekly audits against production dependencies to surface potential upstream vulnerabilities.
-
----
-
-## Responsible Use & Compliance
-
-WishScout is an automation and discovery utility intended strictly for legitimate B2B sales development and market research. The operator of the software is exclusively responsible for complying with international and domestic outreach regulations:
-
-- **United States:** CAN-SPAM Act (15 U.S.C. § 7701) and TCPA (47 U.S.C. § 227).
+- **United States:** CAN-SPAM Act of 2003 (15 U.S.C. § 7701) and TCPA (47 U.S.C. § 227).
 - **European Union:** General Data Protection Regulation (GDPR Article 6 and Article 14) and ePrivacy Directive.
-- **United Kingdom:** Data Protection Act 2018 and PECR.
+- **United Kingdom:** Data Protection Act 2018 and Privacy and Electronic Communications Regulations (PECR).
 - **India:** Digital Personal Data Protection Act, 2023 (DPDP Act).
 
-Always honor contact removal requests immediately, never transmit spam or deceptive communications, and respect target server bandwidth by configuring moderate concurrency and delay intervals. Refer to [DISCLAIMER.md](DISCLAIMER.md) for full policy details.
+Always honor opt-out and communication removal requests promptly, avoid transmission of unsolicited mass spam, and configure appropriate crawler concurrency to respect target server bandwidth. Refer to [DISCLAIMER.md](DISCLAIMER.md) for full policy details.
+
+---
+
+## Third-Party Software & Open-Source Acknowledgments
+
+WishScout acknowledges, credits, and respects the following upstream open-source project:
+
+### [Google Maps Scraper (gosom/google-maps-scraper)](https://github.com/gosom/google-maps-scraper)
+- **Author & Maintainer:** Georgios Somarakis ([@gosom](https://github.com/gosom))
+- **License:** [MIT License](https://github.com/gosom/google-maps-scraper/blob/main/LICENSE)
+- **Role in WishScout:** Coordinates the high-concurrency containerized scraping workflow for batch geographic crawling. WishScout provides automated Docker container management, live log extraction, and seamless real-time ingestion into its local SQLite CRM database.
+
+Full license text for the upstream component is maintained in the root [NOTICE](NOTICE) file.
 
 ---
 
 ## License & Attribution
 
-WishScout is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+WishScout is released under the **GNU General Public License v3.0 (GPL-3.0)**.
 
 ```text
 Copyright (C) 2026 Vishwjeet Singh Vilkhu
 Original Creator & Architect: Vishwjeet Singh Vilkhu
 ```
 
-In accordance with **Section 7 of the GNU GPL-3.0**, any fork, redistribution, compiled release, or derivative work must preserve:
-1. Credit to the original creator and architect, **Vishwjeet Singh Vilkhu**.
+Under **Section 7 of the GNU GPL-3.0**, any fork, redistribution, compiled distribution, or derivative work must preserve:
+1. Prominent credit to the original creator and architect, **Vishwjeet Singh Vilkhu**.
 2. The root [NOTICE](NOTICE) file.
-3. The persistent sidebar credit widget and the interactive "About WishScout" modal.
-4. Copyright and authorship headers present in all source files.
+3. The persistent sidebar credit element and interactive "About WishScout" modal.
+4. Authorship and copyright notices in all source file headers.
 
-See [LICENSE](LICENSE) and [NOTICE](NOTICE) for complete terms.
+Refer to [LICENSE](LICENSE) and [NOTICE](NOTICE) for complete terms.

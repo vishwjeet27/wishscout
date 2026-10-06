@@ -10,11 +10,12 @@ import { fileURLToPath } from 'node:url';
 import { CH, STATUSES, ACTION_TYPES } from '../shared/channels.js';
 import { createStore } from './db.js';
 import { ScraperManager } from './scraperManager.js';
+import { GosomManager } from './gosomManager.js';
 import { toCsv, dossierHtml, renderPdf } from './exporter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
-let win, store, scraper;
+let win, store, scraper, gosom;
 
 if (!app.requestSingleInstanceLock()) app.quit();
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
@@ -27,6 +28,9 @@ function createWindow() {
   });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
+  win.webContents.on('console-message', (e, level, msg, line, src) => {
+    console.error(`[RENDERER CONSOLE ${level}] (${src}:${line}) ${msg}`);
+  });
   win.loadFile(path.join(ROOT, 'src/renderer/index.html'));
 }
 
@@ -157,9 +161,33 @@ function registerIpc() {
   handle(CH.SCRAPE_CANCEL, () => { scraper.cancel(); return scraper.snapshot(); });
   handle(CH.SCRAPE_STATE, () => scraper.snapshot());
 
+  handle(CH.GOSOM_CHECK, () => gosom.checkPrerequisites());
+  handle(CH.GOSOM_START, p => {
+    if (!store.getFlag('terms_accepted_at')) throw new Error('Accept the Responsible Use Agreement first.');
+    return gosom.start(p, app.getPath('temp'));
+  });
+  handle(CH.GOSOM_STOP, () => gosom.stop());
+  handle(CH.GOSOM_STATE, () => gosom.snapshot());
+  handle(CH.GOSOM_IMPORT, async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+      title: 'Import Gosom Output Results (JSON / CSV)',
+      filters: [
+        { name: 'Gosom Output (*.json, *.csv)', extensions: ['json', 'csv'] },
+        { name: 'JSON file', extensions: ['json'] },
+        { name: 'CSV file', extensions: ['csv'] }
+      ],
+      properties: ['openFile']
+    });
+    if (canceled || !filePaths.length) return { canceled: true };
+    const res = gosom.importFile(filePaths[0]);
+    return { ...res, canceled: false };
+  });
+
   handle(CH.LEADS_QUERY, p => store.query(p));
   handle(CH.LEADS_GET, p => store.get(str(p.id)));
   handle(CH.LEADS_FACETS, () => store.facets());
+  handle(CH.LEADS_DUPLICATES, () => store.findPotentialDuplicates());
+  handle(CH.LEADS_MERGE, p => store.mergeLeads(str(p.primaryId), str(p.secondaryId)));
   handle(CH.LEADS_STATUS, p => { store.setStatus(str(p.id), str(p.status)); return { ok: true }; });
   handle(CH.LEADS_BULK_STATUS, p => { store.bulkStatus(ids(p.ids), str(p.status)); return { ok: true }; });
   handle(CH.LEADS_FIELDS, p => { store.updateFields(str(p.id), p.fields); return store.get(str(p.id)); });
@@ -203,7 +231,8 @@ function registerIpc() {
   handle(CH.EXPORT_PDF, async p => {
     const rows = store.exportRows(p).slice(0, 500); const file = await saveAs(`wishscout-dossier-${stamp()}.pdf`, 'PDF', 'pdf');
     if (!file) return { canceled: true };
-    fs.writeFileSync(file, await renderPdf(dossierHtml(rows, path.join(ROOT, 'assets/icon.png')), app.getPath('temp'))); return { path: file, count: rows.length };
+    const html = dossierHtml(rows, path.join(ROOT, 'assets/icon.png'), p.branding || {});
+    fs.writeFileSync(file, await renderPdf(html, app.getPath('temp'))); return { path: file, count: rows.length };
   });
 
   handle(CH.DB_BACKUP, async () => {
@@ -218,13 +247,17 @@ function registerIpc() {
       await shell.openExternal(raw);
       return { ok: true };
     }
+    if (/^whatsapp:\/\//i.test(raw)) {
+      await shell.openExternal(raw);
+      return { ok: true };
+    }
     let u;
     try {
       u = new URL(/^[a-z]+:/i.test(raw) ? raw : 'https://' + raw);
     } catch {
       throw new Error('Invalid URL format');
     }
-    if (!['http:', 'https:', 'mailto:', 'tel:'].includes(u.protocol)) throw new Error('Blocked URL scheme');
+    if (!['http:', 'https:', 'mailto:', 'tel:', 'whatsapp:'].includes(u.protocol)) throw new Error('Blocked URL scheme');
     await shell.openExternal(u.href); return { ok: true };
   });
 }
@@ -237,10 +270,17 @@ app.whenReady().then(() => {
     store, workerPath: path.join(ROOT, 'src/scraper/discoveryWorker.js'),
     emit: evt => { if (win && !win.isDestroyed()) win.webContents.send(CH.SCRAPE_EVENT, evt); }
   });
+  gosom = new GosomManager({
+    store,
+    emit: evt => { if (win && !win.isDestroyed()) win.webContents.send(CH.GOSOM_EVENT, evt); }
+  });
   registerIpc();
   setTimeout(checkFollowUpReminders, 5000);
   setInterval(checkFollowUpReminders, 30 * 60 * 1000);
   app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
 });
-app.on('before-quit', () => { scraper?.shutdown(); });
+app.on('before-quit', () => {
+  scraper?.shutdown();
+  gosom?.stop();
+});
 app.on('window-all-closed', () => { try { store?.close(); } catch { /* noop */ } app.quit(); });

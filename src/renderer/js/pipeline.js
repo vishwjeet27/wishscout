@@ -5,6 +5,7 @@
  */
 import { api, call, h, ext, toast, copy, debounce, confirmBox, field, fmtDate, icon, modal } from './util.js';
 import { CH, STATUSES, ACTION_TYPES } from '../../shared/channels.js';
+import { QRCode } from './qrcode.min.js';
 
 const F = {
   search: '', status: '', category: '', sort: 'discovered_at', dir: 'desc',
@@ -12,7 +13,7 @@ const F = {
   websiteFilter: '', ratingFilter: '', followUpDue: false
 };
 const sel = new Set();
-let compact = false;
+let viewMode = localStorage.getItem('ws-view-mode') || 'comfortable';
 const errText = e => String(e.message).replace(/^Error invoking remote method '[^']+': Error: /, '');
 const guard = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(errText(e)); } };
 const SOCIALS = [['linkedin', 'LinkedIn'], ['twitter', 'Twitter / X'], ['facebook', 'Facebook'], ['instagram', 'Instagram'], ['youtube', 'YouTube']];
@@ -73,14 +74,17 @@ export async function openWhatsApp(lead, onLogged) {
     class: 'btn primary btn-wa',
     onClick: guard(async () => {
       const text = bodyInput.value.trim();
-      const url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
+      const mode = localStorage.getItem('ws-whatsapp-mode') || 'web';
+      const url = mode === 'desktop'
+        ? `whatsapp://send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`
+        : `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(text)}`;
       await call(CH.OPEN_EXTERNAL, { url });
       await call(CH.LOGS_ADD, {
         business_id: lead.id,
         action_type: 'WhatsApp Sent',
-        notes: `WhatsApp message: "${currentTpl.name}"`
+        notes: `WhatsApp message (${mode}): "${currentTpl.name}"`
       });
-      toast('WhatsApp opened & outreach logged');
+      toast(`WhatsApp opened via ${mode === 'desktop' ? 'Desktop App' : 'Web'}`);
       closeModal();
       onLogged?.();
     })
@@ -115,6 +119,296 @@ export async function openWhatsApp(lead, onLogged) {
     field('Message Text', bodyInput),
     h('div', { class: 'actions', style: 'margin-top: 14px; gap: 8px;' },
       sendBtn, copyBtn, logOnlyBtn
+    )
+  ];
+
+  const closeModal = modal(modalBox);
+}
+
+export function openCallModal(lead) {
+  if (!lead.phone) return toast('No phone number recorded for this business');
+  const digits = String(lead.phone).replace(/\D/g, '');
+  const dialPhone = (digits.length === 10 && (lead.country === 'India' || !lead.country)) ? '+91' + digits : (lead.phone.startsWith('+') ? lead.phone : '+' + digits);
+  const telUrl = `tel:${dialPhone}`;
+
+  const qrContainer = h('div', {
+    class: 'qr-frame',
+    style: 'background: #ffffff; padding: 12px; border-radius: 12px; width: 172px; height: 172px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 18px rgba(0,0,0,0.2); margin: 0 auto;'
+  });
+
+  setTimeout(() => {
+    try {
+      new QRCode(qrContainer, {
+        text: telUrl,
+        width: 148,
+        height: 148,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    } catch (e) {
+      console.error('QR code generation error:', e);
+    }
+  }, 40);
+
+  const pcCallBtn = h('button', {
+    class: 'btn primary',
+    style: 'width: 100%;',
+    onClick: guard(async () => {
+      await call(CH.OPEN_EXTERNAL, { url: telUrl });
+      await call(CH.LOGS_ADD, {
+        business_id: lead.id,
+        action_type: 'Called on Phone',
+        notes: `Placed VoIP / PC softphone call to ${dialPhone}`
+      });
+      toast(`Initiated call to ${dialPhone}`);
+    })
+  }, icon('phone', { size: 14 }), ' Call via PC Softphone / VoIP');
+
+  const copyPhoneBtn = h('button', {
+    class: 'btn',
+    onClick: () => copy(dialPhone)
+  }, icon('copy', { size: 13 }), ' Copy Number');
+
+  const logCallBtn = h('button', {
+    class: 'btn',
+    onClick: guard(async () => {
+      await call(CH.LOGS_ADD, {
+        business_id: lead.id,
+        action_type: 'Called on Phone',
+        notes: `Phone call logged: ${dialPhone}`
+      });
+      toast('Call logged to timeline');
+      closeModal();
+    })
+  }, icon('check', { size: 13 }), ' Log as Called');
+
+  const modalBox = [
+    h('div', { class: 'row', style: 'justify-content: space-between; align-items: center;' },
+      h('div', { class: 'row', style: 'gap: 8px;' },
+        icon('phone', { size: 16 }),
+        h('h1', { style: 'font-size: 16px; margin: 0;' }, 'Direct Click-to-Call & Mobile QR Dial')
+      ),
+      h('button', { class: 'btn sm', onClick: () => closeModal() }, 'Close')
+    ),
+    h('p', { class: 'sec', style: 'font-size: 12.5px; margin: 6px 0 14px;' },
+      `Contacting: ${lead.name} (${dialPhone})`
+    ),
+    h('div', { class: 'grid cols2', style: 'gap: 16px; align-items: center;' },
+      h('div', { style: 'text-align: center;' },
+        qrContainer,
+        h('div', { class: 'row', style: 'justify-content: center; align-items: center; gap: 6px; margin-top: 8px;' },
+          icon('camera', { size: 12 }),
+          h('span', { class: 'sec', style: 'font-size: 11.5px;' }, 'Scan with phone camera to dial instantly')
+        )
+      ),
+      h('div', { style: 'display: flex; flex-direction: column; gap: 10px;' },
+        h('b', { style: 'font-size: 15px;' }, dialPhone),
+        h('p', { class: 'muted', style: 'font-size: 12px; margin: 0; line-height: 1.45;' },
+          'Launches Windows Phone Link, Skype, or default softphone on PC, or scan the QR code to ring straight from your mobile handset.'
+        ),
+        pcCallBtn,
+        h('div', { class: 'row', style: 'gap: 8px;' }, copyPhoneBtn, logCallBtn)
+      )
+    )
+  ];
+
+  const closeModal = modal(modalBox);
+}
+
+export async function openDeduplicationModal(onMerged) {
+  let duplicates = [];
+  try {
+    duplicates = await call(CH.LEADS_DUPLICATES);
+  } catch (e) {
+    return toast('Failed to check duplicates: ' + (e?.message || e));
+  }
+
+  if (!duplicates || !duplicates.length) {
+    return toast('Zero duplicate candidates found. Your lead database is clean!');
+  }
+
+  let index = 0;
+
+  function renderCurrent(closeModal) {
+    if (index >= duplicates.length) {
+      toast('All duplicate candidates reviewed!');
+      closeModal();
+      onMerged?.();
+      return;
+    }
+
+    const item = duplicates[index];
+    const a = item.primary;
+    const b = item.secondary;
+
+    const renderCard = (lead, isA) => h('div', {
+      class: 'merge-lead-card',
+      style: 'background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius); padding: 12px; flex: 1;'
+    },
+      h('div', { class: 'row', style: 'justify-content: space-between; align-items: flex-start; margin-bottom: 8px;' },
+        h('b', { style: 'font-size: 14px;' }, lead.name),
+        h('span', { class: 'pill' }, isA ? 'Record A (Primary)' : 'Record B (Secondary)')
+      ),
+      h('div', { style: 'font-size: 12px; display: flex; flex-direction: column; gap: 4px; color: var(--text-secondary);' },
+        h('div', {}, h('span', { class: 'muted' }, 'Phone: '), lead.phone || '—'),
+        h('div', {}, h('span', { class: 'muted' }, 'Email: '), lead.email || '—'),
+        h('div', {}, h('span', { class: 'muted' }, 'Website: '), lead.website || lead.domain || '—'),
+        h('div', {}, h('span', { class: 'muted' }, 'Location: '), [lead.city, lead.state, lead.country].filter(Boolean).join(', ') || '—'),
+        h('div', { class: 'row', style: 'gap: 4px; margin: 0; align-items: center;' },
+          h('span', { class: 'muted' }, 'Rating: '),
+          lead.rating ? [icon('star', { size: 12, fill: '#f59e0b', stroke: '#f59e0b' }), ` ${lead.rating} (${lead.review_count || 0})`] : '—'
+        ),
+        h('div', {}, h('span', { class: 'muted' }, 'Category: '), lead.category || '—'),
+        h('div', {}, h('span', { class: 'muted' }, 'Discovered: '), fmtDate(lead.discovered_at))
+      )
+    );
+
+    const btnMergeA = h('button', {
+      class: 'btn primary',
+      onClick: guard(async () => {
+        await call(CH.LEADS_MERGE, { primaryId: a.id, secondaryId: b.id });
+        toast(`Merged Record B into Record A (${a.name})`);
+        index++;
+        renderCurrent(closeModal);
+      })
+    }, icon('merge', { size: 13 }), ` Merge into Record A`);
+
+    const btnMergeB = h('button', {
+      class: 'btn',
+      onClick: guard(async () => {
+        await call(CH.LEADS_MERGE, { primaryId: b.id, secondaryId: a.id });
+        toast(`Merged Record A into Record B (${b.name})`);
+        index++;
+        renderCurrent(closeModal);
+      })
+    }, icon('merge', { size: 13 }), ` Merge into Record B`);
+
+    const btnSkip = h('button', {
+      class: 'btn',
+      onClick: () => {
+        index++;
+        renderCurrent(closeModal);
+      }
+    }, 'Keep Separate');
+
+    contentBox.replaceChildren(
+      h('div', { class: 'row', style: 'justify-content: space-between; align-items: center;' },
+        h('div', { class: 'row', style: 'gap: 8px;' },
+          icon('merge', { size: 16 }),
+          h('h1', { style: 'font-size: 16px; margin: 0;' }, `Duplicate Review Assistant (${index + 1} of ${duplicates.length})`)
+        ),
+        h('button', { class: 'btn sm', onClick: () => { closeModal(); onMerged?.(); } }, 'Close')
+      ),
+      h('p', { class: 'sec', style: 'font-size: 12.5px; margin: 6px 0 14px;' },
+        `Matched via: `, h('b', {}, item.matchedOn.toUpperCase()), ` = `, h('code', {}, item.matchValue),
+        `. Non-destructive merge preserves contacts, ratings, tags, and combines activity logs.`
+      ),
+      h('div', { class: 'grid cols2', style: 'gap: 14px; margin-bottom: 16px;' },
+        renderCard(a, true),
+        renderCard(b, false)
+      ),
+      h('div', { class: 'row', style: 'justify-content: space-between; align-items: center;' },
+        btnSkip,
+        h('div', { class: 'row', style: 'gap: 8px;' },
+          btnMergeB,
+          btnMergeA
+        )
+      )
+    );
+  }
+
+  const contentBox = h('div', {});
+  const closeModal = modal([contentBox]);
+  renderCurrent(closeModal);
+}
+
+export function openPdfBrandingModal({ onExport }) {
+  const savedAgency = localStorage.getItem('ws-pdf-agency') || 'WishScout Intelligence';
+  const savedTitle = localStorage.getItem('ws-pdf-title') || 'Local Business Discovery & Lead Dossier';
+  const savedSubtitle = localStorage.getItem('ws-pdf-subtitle') || 'Confidential Market Analysis & Growth Opportunities';
+  const savedColor = localStorage.getItem('ws-pdf-color') || '#4f46e5';
+  const savedThumbs = localStorage.getItem('ws-pdf-thumbs') !== 'false';
+
+  const inpAgency = h('input', { class: 'input', value: savedAgency, placeholder: 'e.g. Acme Growth Agency' });
+  const inpTitle = h('input', { class: 'input', value: savedTitle, placeholder: 'e.g. Market Expansion Dossier' });
+  const inpSubtitle = h('input', { class: 'input', value: savedSubtitle, placeholder: 'e.g. Prepared for Client Pitch' });
+  const inpColor = h('input', { type: 'color', class: 'input', value: savedColor, style: 'width: 44px; height: 36px; padding: 2px; cursor: pointer;' });
+  const chkThumbs = h('input', { type: 'checkbox', checked: savedThumbs });
+
+  const COLOR_PRESETS = [
+    { label: 'Indigo', val: '#4f46e5' },
+    { label: 'Emerald', val: '#059669' },
+    { label: 'Sapphire', val: '#2563eb' },
+    { label: 'Rose', val: '#e11d48' },
+    { label: 'Amber', val: '#d97706' }
+  ];
+
+  const presetSwatches = h('div', { class: 'row', style: 'gap: 6px; align-items: center;' },
+    COLOR_PRESETS.map(p => h('button', {
+      type: 'button',
+      class: 'btn sm',
+      style: `background: ${p.val}; color: #fff; border: none; padding: 4px 8px; font-size: 11px;`,
+      onClick: () => { inpColor.value = p.val; }
+    }, p.label))
+  );
+
+  const btnExportBranded = h('button', {
+    class: 'btn primary',
+    onClick: guard(async () => {
+      const branding = {
+        agencyName: inpAgency.value.trim() || 'WishScout Intelligence',
+        reportTitle: inpTitle.value.trim() || 'Local Business Discovery & Lead Dossier',
+        clientSubtitle: inpSubtitle.value.trim(),
+        accentColor: inpColor.value || '#4f46e5',
+        includeThumbnails: chkThumbs.checked
+      };
+      localStorage.setItem('ws-pdf-agency', branding.agencyName);
+      localStorage.setItem('ws-pdf-title', branding.reportTitle);
+      localStorage.setItem('ws-pdf-subtitle', branding.clientSubtitle);
+      localStorage.setItem('ws-pdf-color', branding.accentColor);
+      localStorage.setItem('ws-pdf-thumbs', String(branding.includeThumbnails));
+
+      closeModal();
+      await onExport(branding);
+    })
+  }, icon('download', { size: 14 }), ' Generate Branded PDF');
+
+  const btnExportDefault = h('button', {
+    class: 'btn',
+    onClick: guard(async () => {
+      closeModal();
+      await onExport(null);
+    })
+  }, 'Quick Default Export');
+
+  const modalBox = [
+    h('div', { class: 'row', style: 'justify-content: space-between; align-items: center;' },
+      h('div', { class: 'row', style: 'gap: 8px;' },
+        icon('download', { size: 16 }),
+        h('h1', { style: 'font-size: 16px; margin: 0;' }, 'White-Label Branded PDF Dossier')
+      ),
+      h('button', { class: 'btn sm', onClick: () => closeModal() }, 'Close')
+    ),
+    h('p', { class: 'sec', style: 'font-size: 12.5px; margin: 6px 0 14px;' },
+      'Customize your company name, report title, and brand accent colors before exporting a proposal-ready lead roster.'
+    ),
+    h('div', { class: 'grid cols2', style: 'gap: 12px;' },
+      field('Agency / Company Name', inpAgency),
+      field('Proposal / Report Title', inpTitle)
+    ),
+    h('div', { style: 'margin-top: 10px;' },
+      field('Client Name or Subtitle (Optional)', inpSubtitle)
+    ),
+    h('div', { class: 'row', style: 'margin-top: 12px; gap: 14px; align-items: center;' },
+      field('Brand Accent Color', h('div', { class: 'row', style: 'gap: 8px; align-items: center;' }, inpColor, presetSwatches))
+    ),
+    h('div', { style: 'margin-top: 12px;' },
+      h('label', { class: 'chk' }, chkThumbs, h('span', {}, 'Include Business Photo Thumbnails in report'))
+    ),
+    h('div', { class: 'row', style: 'justify-content: flex-end; gap: 8px; margin-top: 18px;' },
+      btnExportDefault,
+      btnExportBranded
     )
   ];
 
@@ -213,7 +507,9 @@ const statusSelect = (lead, onChange) => h('div', { class: 'status-sel' }, h('sp
 
 export function mountPipeline(root) {
   let rows = [], total = 0;
-  const tbody = h('tbody'), pager = h('div', { class: 'pager' }), bulk = h('div'), table = h('table', { class: 'data' + (compact ? ' compact' : '') });
+  if (viewMode === 'compact') F.pageSize = 50;
+  const tbody = h('tbody'), pager = h('div', { class: 'pager' }), bulk = h('div');
+  const table = h('table', { class: 'data ' + viewMode });
   const catSel = h('select', { class: 'input', onChange: e => { F.category = e.target.value; F.page = 1; refresh(); } }, h('option', { value: '' }, 'All categories'));
   call(CH.LEADS_FACETS).then(f => f.categories.forEach(c => catSel.append(h('option', { value: c, selected: c === F.category }, c))));
 
@@ -240,7 +536,14 @@ export function mountPipeline(root) {
         h('td', {}, h('input', { type: 'checkbox', checked: sel.has(r.id), 'aria-label': 'Select ' + r.name, onChange: e => { e.target.checked ? sel.add(r.id) : sel.delete(r.id); renderBulk(); } })),
         h('td', {},
           h('div', { class: 'row', style: 'gap: 8px; align-items: flex-start; flex-wrap: nowrap;' },
-            r.thumbnail ? h('img', { src: r.thumbnail, class: 'lead-thumb-mini', alt: '' }) : null,
+            r.thumbnail ? h('img', {
+              src: r.thumbnail,
+              class: 'lead-thumb-mini',
+              alt: '',
+              loading: 'lazy',
+              referrerPolicy: 'no-referrer',
+              onError: e => { e.target.style.display = 'none'; }
+            }) : null,
             h('div', {},
               h('div', { class: 'cell-name' }, r.name, r.website ? ext(r.website, icon('external', { size: 11 }), { 'aria-label': 'Open website' }) : null),
               h('div', { class: 'chips', style: 'margin-top: 4px; gap: 4px;' },
@@ -254,7 +557,12 @@ export function mountPipeline(root) {
         ),
         h('td', {},
           r.phone ? h('div', { class: 'row', style: 'gap: 6px; margin: 0; align-items: center;' },
-            ext('tel:' + r.phone, r.phone),
+            h('button', {
+              class: 'btn-phone-dial',
+              type: 'button',
+              title: 'Click to Call via PC VoIP or Scan Smartphone QR',
+              onClick: () => openCallModal(r)
+            }, icon('phone', { size: 11 }), ' ' + r.phone),
             h('button', {
               class: 'btn sm btn-wa',
               title: 'Open WhatsApp Chat',
@@ -326,6 +634,9 @@ export function mountPipeline(root) {
   const unlisten = api.on(CH.SCRAPE_EVENT, evt => {
     if (evt.type === 'lead' || evt.type === 'lead_updated') liveRefresh();
   });
+  const unlistenGosom = api.on(CH.GOSOM_EVENT, evt => {
+    if (evt.type === 'lead' || evt.type === 'lead_updated' || evt.type === 'done') liveRefresh();
+  });
 
   table.append(tbody);
 
@@ -350,10 +661,54 @@ export function mountPipeline(root) {
           }
         })
       }, icon('upload', { size: 13 }), ' Import CSV'),
+      h('button', {
+        class: 'btn sm',
+        title: 'Detect and resolve duplicate business listings',
+        onClick: () => openDeduplicationModal(refresh)
+      }, icon('merge', { size: 12 }), ' Deduplication Assistant'),
       h('button', { class: 'btn sm', onClick: () => doExport(CH.EXPORT_CSV) }, 'Export CSV'),
       h('button', { class: 'btn sm', onClick: () => doExport(CH.EXPORT_JSON) }, 'JSON'),
-      h('button', { class: 'btn sm', onClick: () => doExport(CH.EXPORT_PDF) }, 'PDF')
+      h('button', {
+        class: 'btn sm primary',
+        title: 'Generate White-Label Branded Client Proposal PDF',
+        onClick: () => openPdfBrandingModal({
+          onExport: branding => doExport(CH.EXPORT_PDF, { filters: F, branding })
+        })
+      }, icon('download', { size: 12 }), ' PDF Dossier')
     ));
+
+  const viewModeSeg = h('div', { class: 'segmented-control' },
+    h('button', {
+      type: 'button',
+      class: 'seg-btn' + (viewMode === 'compact' ? ' active' : ''),
+      title: 'Compact Mode: 50 rows at a glance for laptops',
+      onClick: () => {
+        viewMode = 'compact';
+        localStorage.setItem('ws-view-mode', 'compact');
+        viewModeSeg.children[0].classList.add('active');
+        viewModeSeg.children[1].classList.remove('active');
+        table.className = 'data compact';
+        F.pageSize = 50;
+        F.page = 1;
+        refresh();
+      }
+    }, icon('list', { size: 12 }), ' Compact (50)'),
+    h('button', {
+      type: 'button',
+      class: 'seg-btn' + (viewMode === 'comfortable' ? ' active' : ''),
+      title: 'Comfortable Mode: High visual clarity with big photos & category tags',
+      onClick: () => {
+        viewMode = 'comfortable';
+        localStorage.setItem('ws-view-mode', 'comfortable');
+        viewModeSeg.children[0].classList.remove('active');
+        viewModeSeg.children[1].classList.add('active');
+        table.className = 'data comfortable';
+        F.pageSize = 25;
+        F.page = 1;
+        refresh();
+      }
+    }, icon('layers', { size: 12 }), ' Comfortable')
+  );
 
   const toolbar = h('div', { class: 'toolbar' },
     h('input', { class: 'input search', type: 'search', placeholder: 'Search name, domain, city, phone…', value: F.search, 'aria-label': 'Search leads', onInput: debounce(e => { F.search = e.target.value.trim(); F.page = 1; refresh(); }, 250) }),
@@ -364,13 +719,14 @@ export function mountPipeline(root) {
     h('select', { class: 'input', 'aria-label': 'Sort by', onChange: e => { F.sort = e.target.value; F.dir = e.target.value === 'name' ? 'asc' : 'desc'; refresh(); } },
       [['discovered_at', 'Date added'], ['name', 'Name (A–Z)'], ['rating', 'Rating'], ['review_count', 'Review count']].map(([v, l]) => h('option', { value: v, selected: v === F.sort }, l))),
     chk('Has email', 'hasEmail'), chk('Has owner', 'hasOwner'), chk('Has social', 'hasSocial'), chk('Due follow-ups', 'followUpDue'),
-    h('label', { class: 'chk' }, h('input', { type: 'checkbox', checked: compact, onChange: e => { compact = e.target.checked; table.classList.toggle('compact', compact); } }), 'Compact rows'));
+    viewModeSeg
+  );
 
   const tableWrap = h('div', { class: 'table-wrap' }, table);
   const pipelinePage = h('div', { class: 'pipeline-page' }, header, toolbar, bulk, tableWrap, pager);
   root.replaceChildren(pipelinePage);
   refresh();
-  return () => { unlisten?.(); };
+  return () => { unlisten?.(); unlistenGosom?.(); };
 }
 
 // ---------- Lead detail drawer ----------
@@ -389,6 +745,64 @@ export async function openDrawer(id, onChange) {
     const kv = (k, v) => (v ? [h('dt', {}, k), h('dd', {}, v)] : []);
     const today = new Date().toISOString().slice(0, 10);
     const isDue = lead.follow_up_date && lead.follow_up_date <= today;
+
+    // Multi-Channel Outreach Status Checklist
+    const CHANNELS = [
+      { key: 'wa', label: 'WhatsApp Sent', iconName: 'whatsapp', logType: 'WhatsApp Sent' },
+      { key: 'email', label: 'Email Sent', iconName: 'mail', logType: 'Email Sent' },
+      { key: 'call', label: 'Called on Phone', iconName: 'phone', logType: 'Called on Phone' },
+      { key: 'dm', label: 'Instagram DM', iconName: 'instagram', logType: 'Social DM' }
+    ];
+
+    const currentTags = (lead.tags || '').split(',').map(s => s.trim());
+    const hasAction = action => logs.some(l => l.action_type === action);
+
+    let completedCount = 0;
+    CHANNELS.forEach(c => {
+      if (currentTags.includes(c.label) || hasAction(c.logType)) completedCount++;
+    });
+
+    const checklistSection = h('section', {},
+      h('div', { class: 'row', style: 'justify-content: space-between; align-items: center; margin-bottom: 8px;' },
+        h('h2', { style: 'margin: 0;' }, 'Multi-Channel Outreach Checklist'),
+        h('span', { class: 'pill ' + (completedCount === 4 ? 'ok' : 'info') }, `${completedCount} of 4 Contacted (${completedCount * 25}%)`)
+      ),
+      h('div', { class: 'grid cols2', style: 'gap: 8px; margin-top: 8px;' },
+        CHANNELS.map(c => {
+          const isDone = currentTags.includes(c.label) || hasAction(c.logType);
+          const chkBox = h('input', {
+            type: 'checkbox',
+            checked: isDone,
+            onChange: guard(async e => {
+              let tags = (lead.tags || '').split(',').map(s => s.trim()).filter(Boolean);
+              if (e.target.checked) {
+                if (!tags.includes(c.label)) tags.push(c.label);
+                await call(CH.LOGS_ADD, {
+                  business_id: id,
+                  action_type: c.logType,
+                  notes: `Outreach completed via ${c.label}`
+                });
+              } else {
+                tags = tags.filter(t => t !== c.label);
+              }
+              const updatedTags = tags.join(', ');
+              const fresh = await call(CH.LEADS_FIELDS, { id, fields: { tags: updatedTags } });
+              lead.tags = updatedTags;
+              render(fresh);
+              toast(`${c.label} marked as ${e.target.checked ? 'completed' : 'pending'}`);
+            })
+          });
+          return h('label', {
+            class: `chk-card ${isDone ? 'done' : ''}`,
+            style: 'display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius); cursor: pointer;'
+          },
+            chkBox,
+            icon(c.iconName, { size: 13 }),
+            h('span', { style: 'font-size: 12.5px; font-weight: 500;' }, c.label)
+          );
+        })
+      )
+    );
 
     back.replaceChildren(h('aside', { class: 'drawer', role: 'dialog', 'aria-label': lead.name },
       lead.thumbnail ? h('div', { class: 'drawer-hero-banner', style: `background-image: url('${lead.thumbnail}')` }) : null,
@@ -421,10 +835,12 @@ export async function openDrawer(id, onChange) {
         ] : 'None scheduled'),
         kv('Last contacted', lead.last_contacted_at ? fmtDate(lead.last_contacted_at) : ''))),
 
+      checklistSection,
+
       h('section', {},
         h('h2', {}, 'Direct outreach & action'),
         h('div', { class: 'row', style: 'gap: 8px; flex-wrap: wrap;' },
-          lead.phone ? ext('tel:' + lead.phone, [icon('phone', { size: 13 }), ` Call ${lead.phone}`], { class: 'btn' }) : null,
+          lead.phone ? h('button', { class: 'btn', onClick: () => openCallModal(lead) }, icon('phone', { size: 13 }), ` Call ${lead.phone} (VoIP / QR)`) : null,
           lead.phone ? h('button', { class: 'btn btn-wa', onClick: () => openWhatsApp(lead, () => call(CH.LEADS_GET, { id }).then(render)) }, icon('whatsapp', { size: 14 }), ' Send WhatsApp') : null,
           lead.email ? h('button', { class: 'btn', onClick: () => openPitchComposer(lead, () => call(CH.LEADS_GET, { id }).then(render)) }, icon('mail', { size: 13 }), ' Compose Email Pitch') : null,
           lead.website ? ext(lead.website, [icon('external', { size: 13 }), ' Open website'], { class: 'btn' }) : null

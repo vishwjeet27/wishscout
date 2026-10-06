@@ -58,7 +58,7 @@ const FILLABLE = ['address','state','postal_code','phone','normalized_phone','em
 const EDITABLE = ['notes','owner_name','owner_title','email','tags','follow_up_date','price_range','opening_hours','description'];
 const SORTS = { name: 'name COLLATE NOCASE', rating: 'rating', review_count: 'review_count', discovered_at: 'discovered_at',
   city: 'city COLLATE NOCASE', status: 'status' };
-const DEFAULTS = { concurrency: 2, delayMin: 1500, delayMax: 3500, proxy: '', headless: true };
+const DEFAULTS = { concurrency: 2, delayMin: 1500, delayMax: 3500, proxy: '', headless: true, whatsappMode: 'web' };
 
 // ---------- normalisation helpers (fingerprints) ----------
 export function normalizePhone(p) {
@@ -152,6 +152,7 @@ export function createStore(dbFile) {
   try { db.exec('ALTER TABLE businesses ADD COLUMN description TEXT'); } catch {}
   try { db.exec('ALTER TABLE businesses ADD COLUMN plus_code TEXT'); } catch {}
   try { db.exec('CREATE INDEX IF NOT EXISTS idx_businesses_followup ON businesses(follow_up_date)'); } catch {}
+  try { db.exec("UPDATE businesses SET owner_name = '', owner_title = '' WHERE LOWER(TRIM(owner_name)) = LOWER(TRIM(name)) OR owner_name LIKE '%' || name || '%'"); } catch {}
 
   const insertStmt = db.prepare(`INSERT INTO businesses (${COLS.join(',')}) VALUES (${COLS.map(c => '@' + c).join(',')})`);
   const byPlace = db.prepare('SELECT id, status FROM businesses WHERE place_id = ?');
@@ -216,8 +217,8 @@ export function createStore(dbFile) {
     const w = [], p = [];
     if (f.search) {
       const s = `%${String(f.search).replace(/[\\%_]/g, '\\$&')}%`;
-      w.push(`(name LIKE ? ESCAPE '\\' OR domain LIKE ? ESCAPE '\\' OR city LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR owner_name LIKE ? ESCAPE '\\')`);
-      p.push(s, s, s, s, s, s);
+      w.push(`(name LIKE ? ESCAPE '\\' OR domain LIKE ? ESCAPE '\\' OR city LIKE ? ESCAPE '\\' OR state LIKE ? ESCAPE '\\' OR country LIKE ? ESCAPE '\\' OR address LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR owner_name LIKE ? ESCAPE '\\')`);
+      p.push(s, s, s, s, s, s, s, s, s);
     }
     if (f.status && STATUSES.includes(f.status)) { w.push('status = ?'); p.push(f.status); }
     if (f.category) { w.push('category = ?'); p.push(f.category); }
@@ -280,6 +281,63 @@ export function createStore(dbFile) {
       db.prepare(`UPDATE businesses SET ${keys.map(k => `${k}=@${k}`).join(',')}, updated_at=@u WHERE id=@id`).run({ ...vals, u: Date.now(), id });
     },
     deleteMany(ids) { return db.prepare('DELETE FROM businesses WHERE id IN (SELECT value FROM json_each(?))').run(JSON.stringify(ids)).changes; },
+
+    findPotentialDuplicates() {
+      const byPhone = db.prepare(`
+        SELECT a.id as id1, b.id as id2, a.name as name1, b.name as name2,
+               a.phone as phone1, b.phone as phone2, a.email as email1, b.email as email2,
+               a.website as web1, b.website as web2,
+               a.city as city1, b.city as city2, 'phone' as match_type
+        FROM businesses a
+        JOIN businesses b ON a.normalized_phone = b.normalized_phone AND a.id < b.id
+        WHERE a.normalized_phone IS NOT NULL AND a.normalized_phone != ''
+        LIMIT 40
+      `).all();
+
+      const byDomain = db.prepare(`
+        SELECT a.id as id1, b.id as id2, a.name as name1, b.name as name2,
+               a.phone as phone1, b.phone as phone2, a.email as email1, b.email as email2,
+               a.website as web1, b.website as web2,
+               a.city as city1, b.city as city2, 'domain' as match_type
+        FROM businesses a
+        JOIN businesses b ON a.domain = b.domain AND a.id < b.id
+        WHERE a.domain IS NOT NULL AND a.domain != ''
+        LIMIT 40
+      `).all();
+
+      const map = new Map();
+      for (const pair of [...byPhone, ...byDomain]) {
+        const key = `${pair.id1}_${pair.id2}`;
+        if (!map.has(key)) map.set(key, pair);
+      }
+      return Array.from(map.values()).slice(0, 50);
+    },
+
+    mergeLeads(primaryId, secondaryId) {
+      const p = getById.get(primaryId);
+      const s = getById.get(secondaryId);
+      if (!p || !s) throw new Error('Lead not found');
+
+      const patch = {};
+      for (const f of FILLABLE) {
+        if ((p[f] == null || p[f] === '') && s[f] != null && s[f] !== '') {
+          patch[f] = s[f];
+        }
+      }
+      if (s.notes && s.notes !== p.notes) {
+        patch.notes = [p.notes, `[Merged from ${s.name}]: ${s.notes}`].filter(Boolean).join('\n');
+      }
+
+      if (Object.keys(patch).length > 0) {
+        const keys = Object.keys(patch);
+        db.prepare(`UPDATE businesses SET ${keys.map(k => `${k}=@${k}`).join(',')}, updated_at=@u WHERE id=@id`)
+          .run({ ...patch, u: Date.now(), id: primaryId });
+      }
+
+      db.prepare('UPDATE outreach_logs SET business_id = ? WHERE business_id = ?').run(primaryId, secondaryId);
+      db.prepare('DELETE FROM businesses WHERE id = ?').run(secondaryId);
+      return { ok: true, primaryId };
+    },
 
     addLog({ business_id, action_type, notes, followUpDate }) {
       const row = getById.get(business_id);

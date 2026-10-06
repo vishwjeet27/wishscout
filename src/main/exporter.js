@@ -32,17 +32,28 @@ export function toCsv(rows) {
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export function dossierHtml(rows, logoPath) {
+export function dossierHtml(rows, logoPath, branding = {}) {
   let logo = '';
-  try { logo = 'data:image/png;base64,' + fs.readFileSync(logoPath).toString('base64'); } catch { /* optional */ }
+  if (branding.logoDataUrl) {
+    logo = branding.logoDataUrl;
+  } else {
+    try { logo = 'data:image/png;base64,' + fs.readFileSync(logoPath).toString('base64'); } catch { /* optional */ }
+  }
+
+  const agency = esc(branding.agencyName || 'WishScout Intelligence');
+  const title = esc(branding.dossierTitle || 'Executive Prospect Dossier');
+  const subtitle = esc(branding.clientNote || `${rows.length} qualified commercial leads · Generated ${new Date().toLocaleDateString()}`);
+  const accent = esc(branding.accentColor || '#0f172a');
+  const showThumbs = branding.includeThumbnails !== false;
+
   const field = (l, v) => (v ? `<tr><th>${l}</th><td>${esc(v)}</td></tr>` : '');
   const cards = rows.map(r => `<section>
     <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
       <div>
-        <h2>${esc(r.name)}</h2>
+        <h2 style="color:${accent};">${esc(r.name)}</h2>
         <p class="cat">${esc(r.category)} · ${esc(r.status)}${r.price_range ? ` · <span style="font-weight:bold;color:#16a34a">${esc(r.price_range)}</span>` : ''}</p>
       </div>
-      ${r.thumbnail ? `<img src="${esc(r.thumbnail)}" alt="" style="width: 72px; height: 54px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />` : ''}
+      ${showThumbs && r.thumbnail ? `<img src="${esc(r.thumbnail)}" alt="" style="width: 72px; height: 54px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;" />` : ''}
     </div>
     <table>
     ${field('Overview', r.description)}
@@ -57,17 +68,19 @@ export function dossierHtml(rows, logoPath) {
     ${field('Facebook', r.social_facebook)}${field('Twitter / X', r.social_twitter)}${field('YouTube', r.social_youtube)}
     ${field('Notes', r.notes)}
     </table></section>`).join('');
-  return `<!doctype html><html><head><meta charset="utf-8"><title>WishScout Dossier</title><style>
+
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
   body{font:11pt/1.45 Helvetica,Arial,sans-serif;color:#0f172a;margin:0}
-  header{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin-bottom:18px}
-  header img{width:46px;height:46px;background:#09090b;border-radius:8px;padding:4px}
-  header h1{font-size:18pt;margin:0} header p{margin:0;color:#475569}
+  header{display:flex;align-items:center;gap:14px;border-bottom:3px solid ${accent};padding-bottom:12px;margin-bottom:18px}
+  header img{max-width:54px;max-height:54px;border-radius:8px;object-fit:contain}
+  header h1{font-size:20pt;margin:0;color:${accent}} header p{margin:2px 0 0;color:#475569;font-size:11pt}
+  .agency-badge{display:inline-block;padding:2px 8px;background:#f1f5f9;border-radius:4px;font-size:9pt;font-weight:700;color:#334155;margin-bottom:4px}
   section{page-break-inside:avoid;border:1px solid #cbd5e1;border-radius:8px;padding:12px 16px;margin-bottom:12px}
   h2{margin:0;font-size:13pt}.cat{margin:2px 0 8px;color:#475569}
   table{border-collapse:collapse;width:100%}th{text-align:left;width:120px;color:#475569;font-weight:600;vertical-align:top;padding:2px 8px 2px 0}td{padding:2px 0;word-break:break-word}
-  footer{margin-top:18px;color:#64748b;font-size:9pt;text-align:center}</style></head><body>
-  <header>${logo ? `<img src="${logo}" alt="">` : ''}<div><h1>Executive Prospect Dossier</h1><p>${rows.length} businesses · generated ${new Date().toLocaleDateString()}</p></div></header>
-  ${cards || '<p>No records.</p>'}<footer>WishScout · Created &amp; Architected by Vishwjeet Singh Vilkhu · GPL-3.0</footer></body></html>`;
+  footer{margin-top:22px;color:#64748b;font-size:9pt;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px}</style></head><body>
+  <header>${logo ? `<img src="${logo}" alt="">` : ''}<div><span class="agency-badge">${agency}</span><h1>${title}</h1><p>${subtitle}</p></div></header>
+  ${cards || '<p>No records.</p>'}<footer>Prepared via ${agency} · WishScout Engine (Architect: Vishwjeet Singh Vilkhu · GPL-3.0)</footer></body></html>`;
 }
 
 export async function renderPdf(html, tmpDir) {

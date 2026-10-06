@@ -332,6 +332,22 @@ export async function mountSettings(root) {
         await call(CH.SETTINGS_SAVE, { concurrency: +conc.value, delayMin: +dmin.value, delayMax: +dmax.value, proxy: proxy.value.trim(), headless: !headfulCheck.checked }); toast('Settings saved');
       }) }, 'Save settings'))),
     templatesCard,
+    h('div', { class: 'card' },
+      h('h2', {}, 'Outreach & Messaging Protocols'),
+      h('p', { class: 'sec', style: 'font-size: 12.5px; margin: 4px 0 12px;' }, 'Configure default application handlers for direct communication channels.'),
+      field('WhatsApp Launch Target', (() => {
+        const curMode = localStorage.getItem('ws-whatsapp-mode') || 'web';
+        const sel = h('select', { class: 'input', style: 'max-width: 400px;' },
+          h('option', { value: 'web', selected: curMode === 'web' }, 'WhatsApp Web (Browser: web.whatsapp.com)'),
+          h('option', { value: 'desktop', selected: curMode === 'desktop' }, 'WhatsApp Desktop App (Windows Native: whatsapp:// protocol)')
+        );
+        sel.onchange = () => {
+          localStorage.setItem('ws-whatsapp-mode', sel.value);
+          toast(`WhatsApp mode set to: ${sel.value === 'desktop' ? 'Native Desktop App' : 'WhatsApp Web'}`);
+        };
+        return sel;
+      })())
+    ),
     h('div', { class: 'card', style: '' }, h('h2', {}, 'Database'),
       h('p', { class: 'sec' }, 'Everything is stored locally. Nothing is sent to any server.'),
       h('div', { class: 'row' },

@@ -20,3 +20,9 @@ d) Transmit unsolicited commercial spam, harassing messages, or fraudulent solic
 
 4. "AS-IS" NO-WARRANTY & LIMITATION OF LIABILITY
 PURSUANT TO SECTIONS 15 AND 16 OF THE GNU GENERAL PUBLIC LICENSE V3.0, THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, OR NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHOR (VISHWJEET SINGH VILKHU) OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, LOSS OF DATA, FINES, REGULATORY ACTIONS, OR OTHER LIABILITIES ARISING FROM THE USE OR MISUSE OF THIS SOFTWARE.
+
+5. THIRD-PARTY TRADEMARKS & OPEN-SOURCE INTEGRATIONS
+All product names, logos, brands, and registered trademarks belong to their respective owners. Google, Google Maps, Bing, YellowPages, Yelp, and Docker are trademarks or registered trademarks of their respective holders. Their mention within this software is solely for descriptive and identification purposes and does not imply endorsement, affiliation, or sponsorship.
+
+The optional "Gosom Scraping Engine" module coordinates with the open-source project google-maps-scraper developed by Georgios Somarakis (gosom) under the permissive MIT License. Full attribution and original license text are preserved in the root NOTICE file and application documentation.
+
